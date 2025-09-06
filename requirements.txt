@@ -1,0 +1,14 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+faster-whisper==1.0.3
+openai-whisper==20240930
+ctranslate2==4.4.0
+ffmpeg-python==0.2.0
+numpy==1.26.4
+soundfile==0.12.1
+librosa==0.10.2.post1
+python-dotenv==1.0.1
+pydantic==2.8.2
+jiwer==3.0.4
+requests==2.32.3
+python-multipart==0.0.9

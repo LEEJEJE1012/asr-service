@@ -1,0 +1,13 @@
+__pycache__/
+.ipynb_checkpoints/
+.venv/
+.env
+logs/
+outputs/
+models/
+data/
+*.pt
+*.pth
+*.onnx
+*.zip
+*.tar*
