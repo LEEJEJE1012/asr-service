@@ -1,10 +1,18 @@
 import time
+import logging
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.services.asr_fw import FasterWhisperASR
 from app.services.asr_ow import OpenAIWhisperASR
+
+# 로깅 설정 - 시간 정보 포함
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 app = FastAPI()
 app.add_middleware(
@@ -13,7 +21,7 @@ app.add_middleware(
     allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
 )
 
-FW = FasterWhisperASR(settings.FW_MODEL_DIR, compute_type="float16", beam_size=settings.FW_BEAM)
+FW = FasterWhisperASR(settings.FW_MODEL_DIR, compute_type="float32", beam_size=settings.FW_BEAM)
 OW = OpenAIWhisperASR(settings.OW_MODEL_DIR)
 
 @app.get("/healthz")
