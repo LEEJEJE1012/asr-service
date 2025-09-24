@@ -7,12 +7,8 @@ from app.core.config import settings
 from app.services.asr_fw import FasterWhisperASR
 from app.services.asr_ow import OpenAIWhisperASR
 
-# 로깅 설정 - 시간 정보 포함
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+# 로깅 설정 import (가장 먼저 실행)
+import logging_config
 
 app = FastAPI()
 app.add_middleware(

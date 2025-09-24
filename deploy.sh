@@ -77,7 +77,7 @@ fi
 log_info "⚙️ Supervisor 설정 파일 생성..."
 cat > /etc/supervisor/conf.d/asr-service.conf << 'EOF'
 [program:asr-service]
-command=/root/miniforge3/envs/server/bin/python -m uvicorn app.server:app --host 0.0.0.0 --port 8000 --workers 1 --log-config /dev/null
+command=/root/miniforge3/envs/server/bin/python -m uvicorn app.server:app --host 0.0.0.0 --port 8000 --workers 1 --log-level info
 directory=/root/asr-service
 user=root
 autostart=true
