@@ -248,11 +248,6 @@ asr-service/
 
 ## 🔍 문제 해결
 
-### **일반적인 문제**
-1. **모델 로딩 실패**: 모델 경로 확인
-2. **메모리 부족**: GPU 메모리 확인
-3. **TTS 품질 문제**: Edge TTS 사용 권장
-
 ### **로그 확인**
 ```bash
 # 서비스 로그
@@ -262,23 +257,10 @@ tail -f /root/asr-service/logs/supervisor_output.log
 tail -f /root/asr-service/logs/supervisor_error.log
 ```
 
-## 📄 라이선스
-
-이 프로젝트는 MIT 라이선스 하에 배포됩니다.
-
-## 🤝 기여하기
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
 ## 📞 지원
 
 - **문서**: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 - **빠른 시작**: [QUICK_START.md](QUICK_START.md)
-- **API 문서**: http://localhost:8000/docs
 
 ---
 
