@@ -17,12 +17,12 @@ from app.core.config import settings
 
 @dataclass
 class _Cols:
-    SERVICE_ID: str = "service_id"
-    SERVICE_NAME: str = "service_name"
+    SERVICE_ID: str = "서비스명"  # 한국어 컬럼명 사용
+    SERVICE_NAME: str = "서비스명"
     TAGS: str = "tags"
-    SUPPORT: str = "support"
-    REQUIREMENT: str = "requirement"
-    URL: str = "source_url"
+    SUPPORT: str = "지원내용"
+    REQUIREMENT: str = "구비서류"
+    URL: str = "URL"
     COMBINED: str = "combined_text"
 
 
@@ -140,9 +140,10 @@ class PolicySearch:
     # ---------- internal helpers ----------
 
     def _compose_texts(self, df: pd.DataFrame) -> pd.Series:
+        # server.py 방식 참고: (서비스명 + tags) * 3 + 지원내용
         name_plus_tags = (df[_Cols.SERVICE_NAME].astype(str) + " " + df[_Cols.TAGS].astype(str)).str.strip()
         combined = (name_plus_tags + " ").str.cat(name_plus_tags + " ").str.cat(name_plus_tags + " ")
-        combined = combined.str.cat(df[_Cols.SUPPORT].astype(str) + " ").str.cat(df[_Cols.REQUIREMENT].astype(str))
+        combined = combined.str.cat(df[_Cols.SUPPORT].astype(str))
         # normalize spaces
         combined = combined.str.replace(r"\s+", " ", regex=True).str.strip()
         return combined

@@ -11,7 +11,7 @@ from app.core.config import settings
 # -----------------------------
 # Helpers
 # -----------------------------
-_SENT_SPLIT = re.compile(r"(?<=[\.!?]|[다요]\s)")
+_SENT_SPLIT = re.compile(r"(?<=[\.!?])|(?<=[다요]\s)")
 _WS = re.compile(r"\s+")
 
 def _normalize_text(text: str) -> str:
@@ -69,13 +69,34 @@ async def synthesize_mp3(
     Edge TTS로 MP3 바이트를 합성해 반환합니다 (비동기).
     """
     v = voice or settings.TTS_VOICE_DEFAULT
+    
+    # Voice 파라미터 검증 및 정리
+    if v and isinstance(v, str):
+        # "voice=ko-KR-SunHiNeural" 형태의 문자열에서 실제 voice 값만 추출
+        if v.startswith("voice="):
+            v = v.replace("voice=", "").strip()
+        # 공백 제거
+        v = v.strip()
+    
+    # 기본값 설정
+    if not v:
+        v = "ko-KR-SunHiNeural"
     chunks = _chunk_by_chars(text, max_chars=max_chars)
     if not chunks:
         return b""
 
     audio = bytearray()
     for ch in chunks:
-        comm = edge_tts.Communicate(text=ch, voice=v, rate=rate, volume=volume, pitch=pitch)
+        # Edge TTS 파라미터 검증 - None 값 제거
+        params = {"text": ch, "voice": v}
+        if rate and isinstance(rate, str):
+            params["rate"] = rate
+        if volume and isinstance(volume, str):
+            params["volume"] = volume
+        if pitch and isinstance(pitch, str):
+            params["pitch"] = pitch
+        
+        comm = edge_tts.Communicate(**params)
         async for msg in comm.stream():
             if msg["type"] == "audio":
                 audio += msg["data"]

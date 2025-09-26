@@ -15,7 +15,8 @@ from app.schemas.pipeline import (
 )
 from app.services.audio_io import to_f32_16k_mono, seconds_from_f32_16k
 from app.services.policy_search import PolicySearch
-from app.services.edge_tts import synthesize_mp3
+from app.services.edge_tts import synthesize_mp3 as edge_synthesize
+from app.services.tts_speecht5 import synthesize_mp3 as speecht5_synthesize
 
 router = APIRouter(tags=["pipeline"])
 
@@ -27,20 +28,7 @@ def _policy() -> PolicySearch:
     # settings에서 csv/qdrant/embed_model 설정을 읽어 초기화(영속 인덱스)
     return PolicySearch()
 
-# 간단 요약기 (Top-1 support 문장의 앞 1~2개를 사용)
-def _simple_summary(text: str, max_chars: int = 180) -> str:
-    t = (text or "").strip()
-    if not t:
-        return "요약 정보를 찾지 못했습니다."
-    # 문장 단위 분리(간단)
-    # 한국어 마침표/문장 경계가 복잡하지만 우선 '.' 기준 + 안전 자르기
-    parts = [p.strip() for p in t.replace("..", ".").split(".") if p.strip()]
-    summary = ". ".join(parts[:2]).strip()
-    if summary and not summary.endswith("."):
-        summary += "."
-    if len(summary) > max_chars:
-        summary = summary[: max_chars - 1] + "…"
-    return summary or "요약 정보를 찾지 못했습니다."
+# 더 이상 사용하지 않음 - 예전 프로토타입 방식으로 변경
 
 # --------------------------------------------------------------------
 # End-to-end pipeline
@@ -54,9 +42,18 @@ async def stt_search_tts(
     beam_size: Optional[int] = Form(None),
     topk: Optional[int] = Form(None),
     voice: Optional[str] = Form(None),
+    tts_engine: Literal["edge_tts", "speecht5"] = Form("edge_tts"),
 ):
     """
-    Audio → STT → Vector Search(Top-K) → Summary(Top-1) → Edge TTS(MP3)
+    Audio → STT → Vector Search(Top-K) → Summary(Top-1) → TTS(MP3)
+    
+    Parameters:
+    - engine: STT 엔진 ("fw" | "ow")
+    - language: 언어 코드 (기본: "ko")
+    - beam_size: Faster-Whisper beam size (기본: 1)
+    - topk: 검색 결과 개수 (기본: 3)
+    - voice: TTS 음성 (Edge TTS만 지원)
+    - tts_engine: TTS 엔진 ("edge_tts" | "speecht5")
     """
     raw = await audio.read()
 
@@ -91,18 +88,29 @@ async def stt_search_tts(
     items = [SearchItem(**r) for r in results_dicts]
     search = SearchResult(query=text, topk=k, results=items)
 
-    # 4) 요약 (Top-1의 support 기준)
-    summary = _simple_summary(items[0].support if items else "")
+    # 4) TTS용 자연스러운 문장 생성 (예전 프로토타입 방식)
+    if items:
+        service_name = items[0].service_name or "알 수 없는 서비스"
+        support_content = items[0].support or "상세 정보가 없습니다"
+        spoken_text = f"추천 정책은 {service_name} 입니다. 요약: {support_content}"
+    else:
+        spoken_text = "적합한 정책을 찾지 못했습니다. 더 구체적으로 말씀해 주세요."
 
-    # 5) Edge TTS 합성 (MP3)
-    v = voice or settings.TTS_VOICE_DEFAULT
-    mp3_bytes = await synthesize_mp3(summary, voice=v)
+    # 5) TTS 합성 (MP3) - 엔진 선택
+    if tts_engine == "edge_tts":
+        v = voice or settings.TTS_VOICE_DEFAULT
+        mp3_bytes = await edge_synthesize(spoken_text, voice=v)
+        tts_voice = v
+    else:  # speecht5
+        mp3_bytes = speecht5_synthesize(spoken_text)
+        tts_voice = "SpeechT5"
+    
     mp3_b64 = base64.b64encode(mp3_bytes).decode("ascii")
     # 대략적 길이 추정(문자수 기반; UI 힌트용)
-    dur_est = max(1.5, len(summary) / 8.0)
+    dur_est = max(1.5, len(spoken_text) / 8.0)
 
     tts = TTSResult(
-        voice=v,
+        voice=tts_voice,
         mp3_b64=mp3_b64,
         duration_est_s=round(dur_est, 2),
     )
@@ -110,6 +118,6 @@ async def stt_search_tts(
     return PipelineResponse(
         stt=stt,
         search=search,
-        summary=summary,
+        summary=spoken_text,
         tts=tts,
     )
