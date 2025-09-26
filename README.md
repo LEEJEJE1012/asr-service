@@ -94,15 +94,15 @@ curl -X POST "http://localhost:8000/stt_search_tts" \
 
 ### **Request Body 필드 상세 설명**
 
-| 필드 | 타입 | 필수 | 기본값 | 설명 | 지원 옵션 |
+| 필드 | 타입 | 필수 | 권장 | 설명 | 지원 옵션 |
 |------|------|------|--------|------|-----------|
 | **`audio`** | `File` | ✅ | - | **음성 파일** (WAV, MP3, M4A 등) | 모든 오디오 형식 |
-| **`engine`** | `string` | ❌ | `"fw"` | **STT 엔진 선택** | `"fw"` (Faster-Whisper)<br>`"ow"` (OpenAI Whisper) |
-| **`language`** | `string` | ❌ | `"ko"` | **언어 코드** | `"ko"` (한국어)<br>`"en"` (영어)<br>`"ja"` (일본어) 등 |
-| **`beam_size`** | `integer` | ❌ | `1` | **Faster-Whisper 빔 크기** | `1` ~ `5` (높을수록 정확하지만 느림) |
-| **`topk`** | `integer` | ❌ | `3` | **검색 결과 개수** | `1` ~ `10` (상위 N개 정책 추천) |
-| **`voice`** | `string` | ❌ | `"ko-KR-SunHiNeural"` | **TTS 음성** (Edge TTS만) | `"ko-KR-SunHiNeural"`<br>`"ko-KR-InJoonNeural"`<br>`"ko-KR-HoYoungNeural"` 등 |
-| **`tts_engine`** | `string` | ❌ | `"edge_tts"` | **TTS 엔진 선택** | `"edge_tts"` (권장)<br>`"speecht5"` (실험적) |
+| **`engine`** | `string` | ✅  | `"fw"` | **STT 엔진 선택** | `"fw"` (Faster-Whisper)<br>`"ow"` (OpenAI Whisper) |
+| **`language`** | `string` | ✅  | `"ko"` | **언어 코드** | `"ko"` (한국어)<br>`"en"` (영어)<br>`"ja"` (일본어) 등 |
+| **`beam_size`** | `integer` | ✅  | `5` | **Faster-Whisper 빔 크기** | `1` ~ `5` (높을수록 정확하지만 느림) |
+| **`topk`** | `integer` | ✅  | `5` | **검색 결과 개수** | `1` ~ `10` (상위 N개 정책 추천) |
+| **`voice`** | `string` | ✅  | `"ko-KR-SunHiNeural"` | **TTS 음성** (Edge TTS만) | `"ko-KR-SunHiNeural"`<br>`"ko-KR-InJoonNeural"`<br>`"ko-KR-HoYoungNeural"` 등 |
+| **`tts_engine`** | `string` | ✅ | `"edge_tts"` | **TTS 엔진 선택** | `"edge_tts"` (권장)<br>`"speecht5"` (실험적) |
 
 ### **필드별 상세 설명**
 
