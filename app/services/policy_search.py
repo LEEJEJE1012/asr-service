@@ -118,18 +118,32 @@ class PolicySearch:
 
         results: List[Dict[str, Any]] = []
         for rank, h in enumerate(reranked, start=1):
-            p = h.payload or {}
-            # tags -> list[str]
-            tags_list = [t.strip() for t in str(p.get(_Cols.TAGS, "")).split(",") if t.strip()]
-            results.append({
-                "rank": rank,
-                "service_id": str(p.get(_Cols.SERVICE_ID, "")),
-                "service_name": str(p.get(_Cols.SERVICE_NAME, "")),
-                "score": float(h.score),
-                "tags": tags_list,
-                "support": str(p.get(_Cols.SUPPORT, "")),
-                "url": str(p.get(_Cols.URL, "")) or None,
-            })
+            # 벡터 검색 결과의 인덱스를 사용해 원본 CSV에서 모든 데이터 가져오기
+            idx = h.id  # Qdrant에서 반환된 인덱스
+            if idx < len(self.df):
+                row = self.df.iloc[idx]
+                # tags -> list[str]
+                tags_list = [t.strip() for t in str(row.get("tags", "")).split(",") if t.strip()]
+                
+                results.append({
+                    "rank": rank,
+                    "service_id": str(row.get("서비스명", "")),
+                    "service_name": str(row.get("서비스명", "")),
+                    "score": float(h.score),
+                    "tags": tags_list,
+                    "support": str(row.get("지원내용", "")),
+                    "url": str(row.get("URL", "")) or None,
+                    
+                    # 추가된 모든 CSV 필드들
+                    "application_deadline": str(row.get("신청기한", "")),
+                    "contact": str(row.get("문의처", "")),
+                    "application_method": str(row.get("신청방법", "")),
+                    "receiving_agency": str(row.get("접수기관명", "")),
+                    "support_type": str(row.get("지원유형", "")),
+                    "target_beneficiaries": str(row.get("지원대상", "")),
+                    "selection_criteria": str(row.get("선정기준", "")),
+                    "required_documents": str(row.get("구비서류", "")),
+                })
         return results
 
     def rebuild(self) -> None:

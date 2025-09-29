@@ -28,6 +28,16 @@ class SearchItem(BaseModel):
     tags: List[str] = Field(default_factory=list, description="Comma-split tags.")
     support: str = Field("", description="Support/benefit description.")
     url: Optional[str] = Field(None, description="Source / details URL (if available).")
+    
+    # 추가된 모든 CSV 필드들
+    application_deadline: str = Field("", description="신청기한")
+    contact: str = Field("", description="문의처")
+    application_method: str = Field("", description="신청방법")
+    receiving_agency: str = Field("", description="접수기관명")
+    support_type: str = Field("", description="지원유형")
+    target_beneficiaries: str = Field("", description="지원대상")
+    selection_criteria: str = Field("", description="선정기준")
+    required_documents: str = Field("", description="구비서류")
 
 
 class SearchResult(BaseModel):
@@ -40,6 +50,14 @@ class SearchResult(BaseModel):
 # -----------------------------
 # TTS (Edge TTS)
 # -----------------------------
+class TTSRequest(BaseModel):
+    """TTS synthesis request."""
+    text: str = Field(..., description="Text to synthesize into speech.")
+    voice: str = Field("ko-KR-SunHiNeural", description="Voice name for synthesis.")
+    rate: Optional[str] = Field(default=None, description="Speech rate (e.g., '+10%', '-5%').")
+    volume: Optional[str] = Field(default=None, description="Speech volume (e.g., '+0%', '+3dB').")
+    pitch: Optional[str] = Field(default=None, description="Speech pitch (e.g., '+0Hz', '+2st').")
+
 class TTSResult(BaseModel):
     """Edge TTS synthesis result."""
     voice: str = Field(..., description="Voice name used for synthesis (e.g., 'ko-KR-SunHiNeural').")
