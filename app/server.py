@@ -8,6 +8,8 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.services.asr_fw import FasterWhisperASR
 from app.services.asr_ow import OpenAIWhisperASR
+from app.services.edge_tts import synthesize_mp3
+from app.schemas.pipeline import TTSRequest, TTSResult
 
 # 로깅 설정 (가장 먼저)
 try:
@@ -89,4 +91,39 @@ async def transcribe(
             "engine": engine,
             "audio_sec": duration,
         }
+    )
+
+@app.post("/synthesize", response_model=TTSResult)
+async def synthesize(request: TTSRequest):
+    """
+    텍스트를 받아서 Edge TTS로 음성을 합성합니다.
+    
+    Parameters:
+    - text: 합성할 텍스트
+    - voice: 음성 선택 (기본: ko-KR-SunHiNeural)
+    - rate: 말하기 속도 (예: "+10%", "-5%")
+    - volume: 음량 (예: "+0%", "+3dB")
+    - pitch: 음조 (예: "+0Hz", "+2st")
+    """
+    import base64
+    
+    # Edge TTS로 음성 합성
+    mp3_bytes = await synthesize_mp3(
+        text=request.text,
+        voice=request.voice,
+        rate=request.rate if request.rate else None,
+        volume=request.volume if request.volume else None,
+        pitch=request.pitch if request.pitch else None
+    )
+    
+    # Base64 인코딩
+    mp3_b64 = base64.b64encode(mp3_bytes).decode("ascii")
+    
+    # 대략적 길이 추정 (문자수 기반)
+    duration_est = max(1.5, len(request.text) / 8.0)
+    
+    return TTSResult(
+        voice=request.voice,
+        mp3_b64=mp3_b64,
+        duration_est_s=round(duration_est, 2)
     )
