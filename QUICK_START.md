@@ -1,11 +1,14 @@
-# ASR 서비스 빠른 시작 가이드
+# 🎤 ASR 복지정책 어시스턴트 빠른 시작 가이드
+
+> **통합 AI 파이프라인**: 음성 입력 → STT → 벡터 검색 → 정책 추천 → 음성 합성 → MP3 응답
 
 ## 🚀 5분 만에 배포하기
 
 ### 1. 프로젝트 준비
 ```bash
-
+# 환경 활성화
 source /root/miniforge3/bin/activate base
+
 # 프로젝트 디렉토리로 이동
 cd /root/asr-service
 
@@ -25,7 +28,9 @@ chmod +x deploy.sh
 curl http://localhost:8000/healthz
 
 # API 문서 확인
-curl http://localhost:8000/docs
+echo "🌐 API 문서: http://localhost:8000/docs"
+echo "📱 Swagger UI: http://localhost:8000/docs"
+echo "📖 ReDoc: http://localhost:8000/redoc"
 ```
 
 ## 📋 수동 배포 (단계별)
@@ -38,6 +43,12 @@ make install
 ### 2. 모델 워밍업
 ```bash
 make warmup
+```
+
+### 2.5. 정책 인덱스 구축 (최초 1회)
+```bash
+# 복지정책 벡터 인덱스 구축
+PYTHONPATH=/root/asr-service python scripts/build_policy_index.py
 ```
 
 ### 3. Supervisor 설정
@@ -100,12 +111,26 @@ tail -f /root/asr-service/logs/supervisor.log
 
 ## 🌐 API 사용법
 
-### 헬스체크
+### 🎯 통합 파이프라인 (핵심 기능)
+```bash
+# 음성 → STT → 정책 검색 → TTS → MP3 응답
+curl -X POST "http://localhost:8000/stt_search_tts" \
+  -F "audio=@voice_input.wav" \
+  -F "engine=fw" \
+  -F "language=ko" \
+  -F "topk=5" \
+  -F "tts_engine=edge_tts" \
+  -F "voice=ko-KR-SunHiNeural"
+```
+
+### 🔧 개별 서비스
+
+#### 헬스체크
 ```bash
 curl http://localhost:8000/healthz
 ```
 
-### 음성 변환
+#### 음성 변환만
 ```bash
 curl -X POST "http://localhost:8000/transcribe" \
   -F "audio=@sample.wav" \
@@ -113,9 +138,35 @@ curl -X POST "http://localhost:8000/transcribe" \
   -F "language=ko"
 ```
 
-### API 문서
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
+#### 음성 합성만
+```bash
+curl -X POST "http://localhost:8000/synthesize" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "안녕하세요. 복지정책 안내입니다.",
+    "voice": "ko-KR-SunHiNeural"
+  }'
+```
+
+### 📊 주요 파라미터
+
+#### STT 엔진
+- `fw`: Faster-Whisper (빠름, 권장)
+- `ow`: OpenAI Whisper (정확함)
+
+#### TTS 음성
+- `ko-KR-SunHiNeural`: 여성, 밝은 톤 (기본값)
+- `ko-KR-InJoonNeural`: 남성, 중성 톤
+- `ko-KR-HoYoungNeural`: 여성, 차분한 톤
+
+#### 검색 옵션
+- `topk`: 상위 N개 정책 추천 (1-10)
+- `beam_size`: Faster-Whisper 빔 크기 (1-5)
+
+### 📚 API 문서
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+- **OpenAPI Schema**: http://localhost:8000/openapi.json
 
 ## ❗ 문제 해결
 
@@ -123,19 +174,50 @@ curl -X POST "http://localhost:8000/transcribe" \
 ```bash
 # 로그 확인
 supervisorctl tail asr-service
+tail -f /root/asr-service/logs/supervisor.log
 
 # 수동 실행 테스트
 cd /root/asr-service
-/root/miniforge3/envs/server/bin/python -m uvicorn app.server:app --host 0.0.0.0 --port 8000
+PYTHONPATH=/root/asr-service /root/miniforge3/envs/server/bin/python -m uvicorn app.server:app --host 0.0.0.0 --port 8000
+```
+
+### 모델 로딩 실패
+```bash
+# 모델 재다운로드
+make warmup
+
+# GPU 메모리 확인
+nvidia-smi
+```
+
+### 정책 검색이 안 되는 경우
+```bash
+# 정책 인덱스 재구축
+PYTHONPATH=/root/asr-service python scripts/build_policy_index.py
+
+# 인덱스 파일 확인
+ls -la qdrant_db/
 ```
 
 ### 포트 충돌
 ```bash
 # 포트 사용 확인
 lsof -i :8000
+netstat -tlnp | grep :8000
 
 # 프로세스 종료
 pkill -f uvicorn
+supervisorctl stop asr-service
+```
+
+### 성능 이슈
+```bash
+# GPU 사용률 확인
+watch -n 1 nvidia-smi
+
+# 메모리 사용량 확인
+free -h
+ps aux | grep python
 ```
 
 ---

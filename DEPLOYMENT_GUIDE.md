@@ -1,6 +1,8 @@
-# ASR 서비스 배포 가이드
+# 🎤 ASR 복지정책 어시스턴트 배포 가이드
 
-이 가이드는 ASR (Automatic Speech Recognition) 서비스를 supervisorctl을 사용하여 배포하는 완전한 과정을 설명합니다.
+이 가이드는 AI 기반 음성 인식 및 복지정책 추천 시스템을 supervisorctl을 사용하여 배포하는 완전한 과정을 설명합니다.
+
+> **통합 AI 파이프라인**: 음성 입력 → STT → 벡터 검색 → 정책 추천 → 음성 합성 → MP3 응답
 
 ## 📋 목차
 
@@ -8,22 +10,27 @@
 2. [프로젝트 클론 및 환경 설정](#프로젝트-클론-및-환경-설정)
 3. [의존성 설치](#의존성-설치)
 4. [모델 다운로드 및 워밍업](#모델-다운로드-및-워밍업)
-5. [Supervisor 설정](#supervisor-설정)
-6. [서비스 배포](#서비스-배포)
-7. [모니터링 및 관리](#모니터링-및-관리)
-8. [문제 해결](#문제-해결)
+5. [정책 인덱스 구축](#정책-인덱스-구축)
+6. [Supervisor 설정](#supervisor-설정)
+7. [서비스 배포](#서비스-배포)
+8. [모니터링 및 관리](#모니터링-및-관리)
+9. [문제 해결](#문제-해결)
 
 ## 🖥️ 시스템 요구사항
 
 ### 하드웨어
-- **GPU**: NVIDIA GPU (CUDA 지원)
+- **GPU**: NVIDIA GPU (CUDA 지원, 권장)
 - **메모리**: 최소 8GB RAM (권장: 16GB+)
-- **저장공간**: 최소 10GB 여유 공간
+- **저장공간**: 최소 15GB 여유 공간
+  - AI 모델: ~3GB (Faster-Whisper, BGE-M3)
+  - 벡터 데이터베이스: ~500MB
+  - 복지정책 데이터: ~10MB
 
 ### 소프트웨어
 - **OS**: Ubuntu 18.04+ 또는 CentOS 7+
 - **Python**: 3.8+
-- **CUDA**: 11.8+ (GPU 사용 시)
+- **CUDA**: 11.8+ 또는 12.4+ (GPU 사용 시)
+- **FFmpeg**: 오디오 처리용
 - **Docker**: 선택사항
 
 ## 🚀 프로젝트 클론 및 환경 설정
@@ -63,8 +70,23 @@ ASR_BASE_DIR=/root/asr-service
 ASR_UPLOAD_DIR=/root/asr-service/data/uploads
 ASR_LOG_DIR=/root/asr-service/logs
 ASR_MODEL_DIR=/root/asr-service/models
+
+# AI 모델 경로
 FW_MODEL_DIR=/root/asr-service/models/faster-whisper/large-v3
 OW_MODEL_DIR=/root/asr-service/models/whisper/medium
+
+# FW 실행 옵션
+FW_DEVICE=cuda
+FW_COMPUTE=float16
+
+# 정책 검색 설정
+POLICY_CSV_PATH=/root/asr-service/data/csv/gov24_services_with_tags.csv
+QDRANT_PATH=/root/asr-service/qdrant_db
+EMBED_MODEL=BAAI/bge-m3
+TOPK_DEFAULT=3
+
+# TTS 설정
+TTS_VOICE_DEFAULT=ko-KR-SunHiNeural
 EOF
 ```
 
@@ -72,9 +94,11 @@ EOF
 ```bash
 # 필요한 디렉토리 생성
 mkdir -p data/uploads
+mkdir -p data/csv
 mkdir -p logs
 mkdir -p models/faster-whisper
 mkdir -p models/whisper
+mkdir -p qdrant_db
 ```
 
 ## 📦 의존성 설치
@@ -138,6 +162,26 @@ ls -la models/whisper/
 # 모델 크기 확인
 du -sh models/
 ```
+
+## 🔍 정책 인덱스 구축
+
+### 1. 정책 데이터 확인
+```bash
+# 정책 CSV 파일 확인
+ls -la data/csv/gov24_services_with_tags.csv
+wc -l data/csv/gov24_services_with_tags.csv
+```
+
+### 2. 벡터 인덱스 구축
+```bash
+# 정책 인덱스 구축 (최초 1회)
+PYTHONPATH=/root/asr-service python scripts/build_policy_index.py
+
+# 인덱스 파일 확인
+ls -la qdrant_db/
+```
+
+> **참고**: 이 과정은 2,881개의 복지정책을 벡터 임베딩으로 변환하여 Qdrant 데이터베이스에 저장합니다. 약 2-3분 소요됩니다.
 
 ## ⚙️ Supervisor 설정
 
@@ -398,18 +442,71 @@ chmod +x deploy.sh
 ### 기본 엔드포인트
 - **헬스체크**: `GET /healthz`
 - **API 문서**: `GET /docs`
+- **통합 파이프라인**: `POST /stt_search_tts` ⭐️
 - **음성 변환**: `POST /transcribe`
+- **음성 합성**: `POST /synthesize`
 
-### 사용 예시
+### 통합 파이프라인 사용 예시 (핵심 기능)
+```bash
+# 음성 → STT → 정책 검색 → TTS → MP3 응답
+curl -X POST "http://localhost:8000/stt_search_tts" \
+  -F "audio=@voice_input.wav" \
+  -F "engine=fw" \
+  -F "language=ko" \
+  -F "topk=5" \
+  -F "tts_engine=edge_tts" \
+  -F "voice=ko-KR-SunHiNeural"
+```
+
+### 개별 서비스 사용 예시
 ```bash
 # 헬스체크
 curl http://localhost:8000/healthz
 
-# 음성 변환
+# 음성 변환만
 curl -X POST "http://localhost:8000/transcribe" \
   -F "audio=@sample.wav" \
   -F "engine=fw" \
   -F "language=ko"
+
+# 음성 합성만
+curl -X POST "http://localhost:8000/synthesize" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "안녕하세요. 복지정책 안내입니다.",
+    "voice": "ko-KR-SunHiNeural"
+  }'
+```
+
+### 응답 형식
+```json
+{
+  "stt": {
+    "text": "청년 주거 지원 정책 알려줘",
+    "engine": "fw",
+    "decode_s": 0.736,
+    "audio_sec": 4.885
+  },
+  "search": {
+    "query": "청년 주거 지원 정책 알려줘",
+    "topk": 5,
+    "results": [
+      {
+        "rank": 1,
+        "service_name": "긴급복지 주거지원",
+        "score": 0.583,
+        "support": "위기사유 발생으로 생계유지가 곤란한 저소득층에게 주거지원",
+        "tags": ["주거", "긴급복지", "저소득층"]
+      }
+    ]
+  },
+  "summary": "추천 정책은 긴급복지 주거지원입니다. 요약: 위기사유 발생으로...",
+  "tts": {
+    "voice": "ko-KR-SunHiNeural",
+    "mp3_b64": "SUQzBAAAAAAAIlRTU0UAAAAOAAADTGF2ZjYyLjMuMTAw...",
+    "duration_est_s": 22.5
+  }
+}
 ```
 
 ## 📞 지원
